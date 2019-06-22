@@ -18,7 +18,9 @@ open Shared
 /// The different elements of the completed report.
 type Report =
     { Location : LocationResponse
-      Crimes : CrimeResponse array }
+      Crimes : CrimeResponse array 
+      Weather : WeatherResponse
+      }
 
 type ServerState = Idle | Loading | ServerError of string
 
@@ -27,7 +29,8 @@ type Model =
     { Postcode : string
       ValidationError : string option
       ServerState : ServerState
-      Report : Report option }
+      Report : Report option 
+      }
 
 /// The different types of messages in the system.
 type Msg =
@@ -35,6 +38,7 @@ type Msg =
     | PostcodeChanged of string
     | GotReport of Report
     | ErrorMsg of exn
+    | Clear
 
 /// The init function is called to start the message pump with an initial view.
 let init () =
@@ -45,15 +49,16 @@ let init () =
 
 let decoderForLocationResponse = Thoth.Json.Decode.Auto.generateDecoder<LocationResponse> ()
 let decoderForCrimeResponse = Thoth.Json.Decode.Auto.generateDecoder<CrimeResponse array>()
+let decoderForWeatherResponse = Thoth.Json.Decode.Auto.generateDecoder<WeatherResponse>()
 
 let getResponse postcode = promise {
     let! location = Fetch.fetchAs<LocationResponse> (sprintf "/api/distance/%s" postcode) decoderForLocationResponse []
     let! crimes = Fetch.tryFetchAs (sprintf "api/crime/%s" postcode) decoderForCrimeResponse [] |> Promise.map (Result.defaultValue [||])
-
+    let! weather = Fetch.tryFetchAs (sprintf "api/weather/%s" postcode) decoderForWeatherResponse [] |> Promise.map (Result.defaultValue { WeatherType = WeatherType.Clear; AverageTemperature = 0. })
     (* Task 4.5 WEATHER: Fetch the weather from the API endpoint you created.
        Then, save its value into the Report below. You'll need to add a new
        field to the Report type first, though! *)
-    return { Location = location; Crimes = crimes } }
+    return { Location = location; Crimes = crimes; Weather = weather } }
 
 /// The update function knows how to update the model given a message.
 let update msg model =
@@ -71,8 +76,14 @@ let update msg model =
             Postcode = p
             (* Task 2.2 Validation. Use the Validation.validatePostcode function to implement client-side form validation.
                Note that the validation is the same shared code that runs on the server! *)
-            ValidationError = None }, Cmd.none
+            ValidationError =
+            if Validation.isValidPostcode p then
+                None
+            else
+                Some "invalid post code"
+                }, Cmd.none
     | _, ErrorMsg e -> { model with ServerState = ServerError e.Message }, Cmd.none
+    | _, Clear -> init()
 
 [<AutoOpen>]
 module ViewParts =
@@ -107,6 +118,7 @@ module ViewParts =
         basicTile "Map" [ Tile.Size Tile.Is12 ] [
             iframe [
                 Style [ Height 410; Width 810 ]
+                Src (getBingMapUrl latLong)
                 (* Task 3.1 MAPS: Use the getBingMapUrl function to build a valid maps URL using the supplied LatLong.
                    You can use it to add a Src attribute to this iframe. *)
             ] [ ]
@@ -126,7 +138,7 @@ module ViewParts =
                             Heading.h3 [ Heading.Is4; Heading.Props [ Style [ Width "100%" ] ] ] [
                                 (* Task 4.8 WEATHER: Get the temperature from the given weather report
                                    and display it here instead of an empty string. *)
-                                str ""
+                                str <| sprintf "Temperature %s°" (weatherReport.AverageTemperature.ToString("F0"))
                             ]
                         ]
                     ]
@@ -191,6 +203,14 @@ let view model dispatch =
                                       Button.Disabled (model.ValidationError.IsSome)
                                       Button.IsLoading (model.ServerState = ServerState.Loading) ]
                                     [ str "Submit" ] ] ] ]
+                    str "\u00a0"  //&nbsp;
+                    Button.button
+                        [ 
+                          Button.Color IsPrimary
+                          Button.OnClick (fun _ -> dispatch Clear)
+                          Button.Disabled (model.ValidationError.IsSome)
+                          ]
+                        [ str "Clear" ]
 
                 ]
 
@@ -216,6 +236,7 @@ let view model dispatch =
                     Tile.ancestor [ ] [
                         Tile.parent [ Tile.IsVertical; Tile.Size Tile.Is4 ] [
                             locationTile model
+                            weatherTile model.Weather
                             (* Task 4.6 WEATHER: Generate the view code for the weather tile
                                using the weatherTile function, supplying the weather report
                                from the model, and include it here as part of the list *)

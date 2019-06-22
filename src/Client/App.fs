@@ -51,14 +51,31 @@ let decoderForLocationResponse = Thoth.Json.Decode.Auto.generateDecoder<Location
 let decoderForCrimeResponse = Thoth.Json.Decode.Auto.generateDecoder<CrimeResponse array>()
 let decoderForWeatherResponse = Thoth.Json.Decode.Auto.generateDecoder<WeatherResponse>()
 
+let defaultLtLong = { Latitude = 0.; Longitude = 0. }
+let defaultLocation = { Town =" "; Region = ""; LatLong = defaultLtLong}
+
+let inline getJson<'T> (response:Fetch.Fetch_types.Response) = 
+    response.text() 
+    |> Promise.map  Thoth.Json.Decode.Auto.unsafeFromString<'T>
+
+// open Fetch.Fetch_types
+// let defaultProps =
+//         [ Fetch.Fetch_types.RequestProperties.Method Fetch.Fetch_types.HttpMethod.POST
+//         ; Fetch.requestHeaders [ContentType "application/json"]
+//         ; RequestProperties.Body <| unbox(toJson data)]
+
 let getResponse postcode = promise {
-    let! location = Fetch.fetchAs<LocationResponse> (sprintf "/api/distance/%s" postcode) decoderForLocationResponse []
+    // let! location = Fetch.fetchAs<LocationResponse> (sprintf "/api/distance/%s" postcode) decoderForLocationResponse []
+    let! location = Fetch.postRecord "/api/distance"  postcode []
     let! crimes = Fetch.tryFetchAs (sprintf "api/crime/%s" postcode) decoderForCrimeResponse [] |> Promise.map (Result.defaultValue [||])
     let! weather = Fetch.tryFetchAs (sprintf "api/weather/%s" postcode) decoderForWeatherResponse [] |> Promise.map (Result.defaultValue { WeatherType = WeatherType.Clear; AverageTemperature = 0. })
     (* Task 4.5 WEATHER: Fetch the weather from the API endpoint you created.
        Then, save its value into the Report below. You'll need to add a new
        field to the Report type first, though! *)
-    return { Location = location; Crimes = crimes; Weather = weather } }
+
+    let! locationResponse = location  |> getJson<LocationResponse> 
+
+    return { Location = locationResponse ; Crimes = crimes; Weather = weather } }
 
 /// The update function knows how to update the model given a message.
 let update msg model =

@@ -13,12 +13,21 @@ let invalidPostcode next (ctx:HttpContext) =
     ctx.SetStatusCode 400
     text "Invalid postcode" next ctx
 
-let getDistanceFromLondon postcode next (ctx:HttpContext) = task {
-    if Validation.isValidPostcode postcode then
-        let! location = getLocation postcode
-        let distanceToLondon = getDistanceBetweenPositions location.LatLong london
-        return! json { Postcode = postcode; Location = location; DistanceToLondon = (distanceToLondon / 1000.<meter>) } next ctx
-    else return! invalidPostcode next ctx }
+// let getDistanceFromLondon postcode next (ctx:HttpContext) = task {
+//     if Validation.isValidPostcode postcode then
+//         let! location = getLocation postcode
+//         let distanceToLondon = getDistanceBetweenPositions location.LatLong london
+//         return! json { Postcode = postcode; Location = location; DistanceToLondon = (distanceToLondon / 1000.<meter>) } next ctx
+//     else return! invalidPostcode next ctx }
+
+let getDistanceFromLondon next (ctx:HttpContext) = 
+    task {
+        let! postcode = ctx.BindModelAsync()
+        if Validation.isValidPostcode postcode then
+            let! location = getLocation postcode
+            let distanceToLondon = getDistanceBetweenPositions location.LatLong london
+            return! json { Postcode = postcode; Location = location; DistanceToLondon = (distanceToLondon / 1000.<meter>) } next ctx
+        else return! invalidPostcode next ctx }
 
 let getCrimeReport postcode next ctx = task {
     if Validation.isValidPostcode postcode then
@@ -56,7 +65,7 @@ let getWeather postcode next ctx = task {
 
 let apiRouter = router {
     pipe_through (pipeline { set_header "x-pipeline-type" "Api" })
-    getf "/distance/%s" getDistanceFromLondon
+    post "/distance" getDistanceFromLondon
     getf "/crime/%s" getCrimeReport
     getf "/weather/%s" getWeather
 

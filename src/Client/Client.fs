@@ -12,7 +12,7 @@ open Elmish.HMR
 Program.mkProgram init update view
 #if DEBUG
 |> Program.withConsoleTrace
-|> Program.withHMR
+//|> Program.withHMR
 #endif
 |> Program.withReact "elmish-app"
 #if DEBUG

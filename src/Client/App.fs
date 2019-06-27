@@ -10,6 +10,7 @@ open Fable.React.Props
 open Fable.Recharts
 open Fable.Recharts.Props
 
+open Thoth.Json
 open Thoth.Fetch
 
 open Fulma
@@ -48,33 +49,79 @@ let init () =
       ValidationError = None
       ServerState = Idle }, Cmd.ofMsg (PostcodeChanged "")
 
-let decoderForLocationResponse = Thoth.Json.Decode.Auto.generateDecoder<LocationResponse> ()
-let decoderForCrimeResponse = Thoth.Json.Decode.Auto.generateDecoder<CrimeResponse array>()
-let decoderForWeatherResponse = Thoth.Json.Decode.Auto.generateDecoder<WeatherResponse>()
+let decoderForLatLong =
+        Decode.object (fun get ->
+            {
+                Latitude = get.Required.Field "Latitude" Decode.float
+                Longitude = get.Required.Field "Longitude" Decode.float
+            }
+        )
 
-let inline getJson<'T> (response: Fetch.Types.Response) = 
-    response.text() 
-    |> Promise.map  Thoth.Json.Decode.Auto.unsafeFromString<'T>
+let decoderForLocation =
+    Decode.object (fun get ->
+        {
+            Town = get.Required.Field "Town" Decode.string
+            Region = get.Required.Field "Region" Decode.string
+            LatLong = get.Required.Field "LatLong" decoderForLatLong
+        }
+    )
+
+let decoderForLocationResponse : (string -> obj -> Result<LocationResponse, _>) =
+    Decode.object (fun get ->
+        {
+            Postcode = get.Required.Field "Postcode" Decode.string
+            Location = get.Required.Field "Location" decoderForLocation
+            DistanceToLondon = get.Required.Field "DistanceToLondon" Decode.float
+        }
+    )
+
+let decoderForCrimeResponse =
+    Decode.object (fun get ->
+        [| {
+            Crime = get.Required.Field "Crime" Decode.string
+            Incidents =  get.Required.Field "Incidents" Decode.int
+        } |]
+    )
+
+let decoderForWeatherResponse =
+    Decode.object (fun get ->
+        {
+            WeatherType = get.Required.Field "WeatherType" Decode.string |> WeatherType.Parse
+            AverageTemperature = get.Required.Field "AverageTemperature" Decode.float
+        }
+    )
+
+//let inline getJson<'T> (response: Fetch.Types.Response) = 
+//    response.text() 
+//    |> Promise.map  Thoth.Json.Decode.Auto.unsafeFromString<'T>
 
 let getResponse postcode = promise {
-    // let! location = Fetch.fetchAs<LocationResponse> (sprintf "/api/distance/%s" postcode) decoderForLocationResponse []
-    let! location = Fetch.postRecord "/api/distance"  postcode []
-    let! crimes = Fetch.tryFetchAs (sprintf "api/crime/%s" postcode) decoderForCrimeResponse [] |> Promise.map (Result.defaultValue [||])
-    let! weather = Fetch.tryFetchAs (sprintf "api/weather/%s" postcode) decoderForWeatherResponse [] |> Promise.map (Result.defaultValue { WeatherType = WeatherType.Clear; AverageTemperature = 0. })
+    let! location =
+        Fetch.tryPost ("/api/distance", postcode, decoderForLocationResponse)
+        |> Promise.map  (Result.defaultValue {
+                    Postcode = ""
+                    Location = {Town = ""; Region = ""; LatLong = {Latitude = 0.; Longitude = 0.}}
+                    DistanceToLondon = 0.
+                }
+        )
+    let! crimes =
+        Fetch.tryFetchAs ((sprintf "api/crime/%s" postcode), decoderForCrimeResponse)
+        |> Promise.map  (Result.defaultValue [||])
+    let! weather =
+        Fetch.tryFetchAs ((sprintf "api/weather/%s" postcode), decoderForWeatherResponse)
+        |> Promise.map (Result.defaultValue { WeatherType = WeatherType.Clear; AverageTemperature = 0. })
     
     (* Task 4.5 WEATHER: Fetch the weather from the API endpoint you created.
        Then, save its value into the Report below. You'll need to add a new
        field to the Report type first, though! *)
 
-    let! locationResponse = location  |> getJson<LocationResponse> 
-
-    return { Location = locationResponse ; Crimes = crimes; Weather = weather } }
+    return { Location = location ; Crimes = crimes; Weather = weather } }
 
 /// The update function knows how to update the model given a message.
 let update msg model =
     match model, msg with
     | { ValidationError = None; Postcode = postcode }, GetReport ->
-        { model with ServerState = Loading }, Cmd.ofPromise getResponse postcode GotReport ErrorMsg
+        { model with ServerState = Loading }, Cmd.OfPromise.either getResponse postcode GotReport ErrorMsg
     | _, GetReport -> model, Cmd.none
     | _, GotReport response ->
         { model with

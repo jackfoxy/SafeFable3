@@ -1,5 +1,7 @@
 namespace Shared
 
+open System
+
 type LatLong =
     { Latitude : float
       Longitude : float }

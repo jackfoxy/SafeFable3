@@ -12,7 +12,7 @@ module KeyCode =
     let downArrow =  40.
 
 let onKeyDown keyCode action =
-    OnKeyDown (fun (ev:Fable.Import.React.KeyboardEvent) ->
+    OnKeyDown (fun (ev: Browser.Types.KeyboardEvent) ->
         if ev.keyCode = keyCode then
             ev.preventDefault()
             action ev)

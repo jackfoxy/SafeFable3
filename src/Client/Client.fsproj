@@ -1,12 +1,18 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
   </PropertyGroup>
   <ItemGroup>
+    <None Include="paket.references" />
     <Compile Include="../Shared/Shared.fs" />
     <Compile Include="ViewHelpers.fs" />
     <Compile Include="App.fs" />
     <Compile Include="Client.fs" />
   </ItemGroup>
+  <!--<ItemGroup>
+    <ProjectReference Include="..\NovaData\NovaData.fsproj">
+    </ProjectReference>
+  </ItemGroup>-->
   <Import Project="..\..\.paket\Paket.Restore.targets" />
 </Project>

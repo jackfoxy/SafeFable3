@@ -100,10 +100,10 @@ let createAndGetDefault () =
 
     let clean = BuildTask.create "Clean" [] {
         [|
-            globToArray "**/src/**/bin"
-            globToArray "**/src/**/obj"
-            globToArray "**/tests/**/bin"
-            globToArray "**/tests/**/obj"
+            //globToArray "**/src/**/bin"
+            //globToArray "**/src/**/obj"
+            //globToArray "**/tests/**/bin"
+            //globToArray "**/tests/**/obj"
             [|"temp"|]
         |]
         |> Array.collect id

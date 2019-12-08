@@ -2,29 +2,10 @@
 module Build.Tasks
 
 open BlackFox.Fake
-open System.IO
 open Fake.Core
 open Fake.DotNet
 open Fake.IO
-open Fake.IO.FileSystemOperators
 open Fake.IO.Globbing.Operators
-open Fake.IO.Globbing.Operators
-open Fake.JavaScript
-
-// let yarn = 
-//     if Environment.isWindows then "yarn.cmd" else "yarn"
-//     |> ProcessUtils.tryFindFileOnPath
-//     |> function
-//        | Some yarn -> yarn
-//        | ex -> failwith ( sprintf "yarn not found (%A)\n" ex )
-
-// let gitName = "MetaAggregator"
-// let gitOwner = "jackfoxy"
-// let gitHome = sprintf "https://github.com/%s" gitOwner
-
-// // Filesets
-// let projects  =
-//       !! "src/**.fsproj"
 
 let project = "SafeFable3"
 let summary = "SAFE-Dojo solution with Fable 3"
@@ -100,10 +81,6 @@ let createAndGetDefault () =
 
     let clean = BuildTask.create "Clean" [] {
         [|
-            //globToArray "**/src/**/bin"
-            //globToArray "**/src/**/obj"
-            //globToArray "**/tests/**/bin"
-            //globToArray "**/tests/**/obj"
             [|"temp"|]
         |]
         |> Array.collect id
@@ -111,10 +88,6 @@ let createAndGetDefault () =
         |> Shell.cleanDirs
         }
 
-    //let cleanDocs = BuildTask.create "CleanDocs" [] {
-    //    Shell.cleanDirs ["../docs/reference"; "docs"]
-    //    }
-        
     let installClient = BuildTask.create "InstallClient" [] {
          let jsPackageManager = getJsPackageManager ()
 
@@ -126,92 +99,12 @@ let createAndGetDefault () =
          runDotNet "restore" clientPath
      }
 
-    // Generate assembly info files with the right version & up-to-date information
-    //let assemblyInfo = BuildTask.create "AssemblyInfo" [clean] {
-    //    let getAssemblyInfoAttributes projectName =
-    //        [   AssemblyInfo.Title (projectName)
-    //            AssemblyInfo.Product project
-    //            AssemblyInfo.Description summary
-    //            AssemblyInfo.Configuration configuration ]
-
-    //    let getProjectDetails (projectPath :string) =
-    //        let projectName = System.IO.Path.GetFileNameWithoutExtension(projectPath)
-    //        ( projectPath,
-    //            projectName,
-    //            System.IO.Path.GetDirectoryName(projectPath),
-    //            (getAssemblyInfoAttributes projectName)
-    //        )
-
-    //    !! "src/**/*.??proj"
-    //    |> Seq.map getProjectDetails
-    //    |> Seq.iter (fun (projFileName, _, folderName, attributes) ->
-    //        match projFileName with
-    //        | Fsproj -> AssemblyInfoFile.createFSharp (folderName </> "AssemblyInfo.fs") attributes
-    //        | Csproj -> AssemblyInfoFile.createCSharp ((folderName </> "Properties") </> "AssemblyInfo.cs") attributes
-    //        | Vbproj -> AssemblyInfoFile.createVisualBasic ((folderName </> "My Project") </> "AssemblyInfo.vb") attributes
-    //        | Shproj -> ()
-    //        )
-    //}
-
-    //let buildConfiguration = DotNet.Custom <| Environment.environVarOrDefault "configuration" configuration
-
-    // --------------------------------------------------------------------------------------
-    // Build library & test project
-
     let build = BuildTask.create "Build" [clean] {
         let jsPackageManager = getJsPackageManager ()
-
-        //projectsToBuild
-        //|> Array.iter (fun x -> 
-        //    DotNet.build (fun p ->
-        //        { p with
-        //            Configuration = buildConfiguration 
-        //            DotNet.BuildOptions.MSBuildParams = 
-        //                { p.MSBuildParams  with
-        //                    DisableInternalBinLog = true }
-        //        }) x
-        //)
-               
+        
         runDotNet "build" serverPath
         runTool jsPackageManager.RunTool "webpack-cli -p" __SOURCE_DIRECTORY__
     }
-
-    //let buildTests = BuildTask.create "BuildTests" [assemblyInfo] {
-    //    [|
-    //        globToArray "**/tests/**/bin"
-    //        globToArray "**/tests/**/obj"
-    //    |]
-    //    |> Array.collect id
-    //    |> Shell.cleanDirs
-       
-    //    [|
-    //        Path.getFullName <| sprintf "./tests/%s.Tests" project
-    //        Path.getFullName "./tests/Benchmark.Tests"
-    //    |]
-    //    |> Array.iter (fun x -> 
-    //        DotNet.build (fun p ->
-    //            { p with
-    //                Configuration = buildConfiguration }) x
-    //    )
-                
-    //}
-
-    // Copies binaries from default VS location to expected bin folder
-    // But keeps a subdirectory structure for each project in the
-    // src folder to support multiple project outputs
-    //Target.create "CopyBinaries" (fun _ ->
-    //let binaries() =
-    //    !! "**/src/**/*.??proj"
-    //    -- "**/src/**/*.shproj"
-    //    -- "**/src/**/Server.fsproj"
-    //    |> Seq.map (fun f -> ((System.IO.Path.GetDirectoryName f) </> "bin" </> configuration, "bin" </> (System.IO.Path.GetFileNameWithoutExtension f)))
-    //    |> Seq.filter (fun (fromDir, toDir) -> fromDir.ToLower().Contains("client") |> not)
-    //    |> Seq.iter (fun (fromDir, toDir) -> Shell.copyDir toDir fromDir (fun _ -> true))
-
-
-    //let copyBinaries = BuildTask.create "CopyBinaries" [build] {
-    //    binaries()
-    //}
 
     let theRun() =
         let jsPackageManager = getJsPackageManager ()
